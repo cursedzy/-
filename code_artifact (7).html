@@ -1,0 +1,797 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Помоги мне вспмомнить</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+
+  <style>
+    :root {
+      --bg-main: #ffffff;
+      --bg-sidebar: #f8fafd;
+      --bg-surface: #f0f4f9;
+      --bg-user-bubble: #e9eef6;
+      --border-subtle: rgba(15, 23, 42, 0.08);
+      --border-choice: rgba(15, 23, 42, 0.14);
+      --text-primary: #1f1f1f;
+      --text-secondary: #444746;
+      --text-muted: #747775;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background-color: var(--bg-main);
+      color: var(--text-primary);
+      overflow: hidden;
+      user-select: none;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(15, 23, 42, 0.14);
+      border-radius: 9999px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: rgba(15, 23, 42, 0.25);
+    }
+
+    .ambient-gradient-stage {
+      position: fixed;
+      inset: 0;
+      overflow: hidden;
+      pointer-events: none;
+      z-index: 0;
+      background: linear-gradient(135deg, #ffffff 0%, #f6f8ff 50%, #f3f0ff 100%);
+    }
+
+    .floating-orb {
+      position: absolute;
+      border-radius: 50%;
+      filter: blur(95px);
+      opacity: 0.72;
+      will-change: transform;
+    }
+
+    .orb-1 {
+      width: 580px;
+      height: 580px;
+      background: radial-gradient(circle, #bfdbfe 0%, transparent 72%);
+      top: -10%;
+      left: 16%;
+      animation: floatOrb1 22s ease-in-out infinite alternate;
+    }
+
+    .orb-2 {
+      width: 540px;
+      height: 540px;
+      background: radial-gradient(circle, #ddd6fe 0%, transparent 72%);
+      bottom: -12%;
+      right: 8%;
+      animation: floatOrb2 26s ease-in-out infinite alternate;
+    }
+
+    .orb-3 {
+      width: 460px;
+      height: 460px;
+      background: radial-gradient(circle, #fde68a 0%, transparent 72%);
+      top: 34%;
+      left: 46%;
+      opacity: 0.55;
+      animation: floatOrb3 30s ease-in-out infinite alternate;
+    }
+
+    @keyframes floatOrb1 {
+      0% { transform: translate(0, 0) scale(1); }
+      50% { transform: translate(85px, 65px) scale(1.12); }
+      100% { transform: translate(-45px, 115px) scale(0.94); }
+    }
+
+    @keyframes floatOrb2 {
+      0% { transform: translate(0, 0) scale(1); }
+      50% { transform: translate(-95px, -55px) scale(1.08); }
+      100% { transform: translate(45px, -95px) scale(0.95); }
+    }
+
+    @keyframes floatOrb3 {
+      0% { transform: translate(0, 0) scale(1); }
+      100% { transform: translate(-115px, 75px) scale(1.15); }
+    }
+
+    .choice-pill-btn {
+      background-color: rgba(255, 255, 255, 0.85);
+      border: 1px solid var(--border-choice);
+      color: var(--text-primary);
+      box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+      transition: all 0.2s cubic-bezier(0.2, 0, 0, 1);
+    }
+    .choice-pill-btn:hover:not(:disabled) {
+      background-color: #f0f4f9;
+      border-color: rgba(15, 23, 42, 0.26);
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(15, 23, 42, 0.06);
+    }
+    .choice-pill-btn:active:not(:disabled) {
+      transform: translateY(0) scale(0.98);
+    }
+
+    .memory-image-card {
+      cursor: zoom-in;
+      transition: transform 0.25s cubic-bezier(0.2, 0, 0, 1), box-shadow 0.25s cubic-bezier(0.2, 0, 0, 1);
+    }
+    .memory-image-card:hover {
+      transform: scale(1.012);
+      box-shadow: 0 12px 30px rgba(15, 23, 42, 0.12);
+    }
+
+    .is-glitching #userPromptBubble {
+      animation: elementInvertJitter 0.42s steps(2, end) forwards;
+    }
+
+    .is-glitching .memory-image-card {
+      animation: cardInvertSlice 0.42s steps(2, end) forwards;
+    }
+
+    .is-glitching .ai-text-block {
+      animation: textGlitchShift 0.42s steps(2, end) forwards;
+    }
+
+    .is-glitching .author-note {
+      animation: elementInvertJitter 0.42s steps(2, end) reverse forwards;
+    }
+
+    .is-glitching #sidebarHistoryList > div:nth-child(odd) {
+      animation: sidebarItemFlicker 0.42s steps(2, end) forwards;
+    }
+
+    .is-glitching #activeChatTitle {
+      animation: elementInvertJitter 0.42s steps(2, end) forwards;
+    }
+
+    .glitch-light-pulse {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 60;
+      opacity: 0;
+      background: rgba(255, 255, 255, 0.65);
+      backdrop-filter: invert(0.92) contrast(1.25);
+      -webkit-backdrop-filter: invert(0.92) contrast(1.25);
+    }
+
+    .glitch-light-pulse.active {
+      animation: laconicLightFlash 0.42s steps(1, end) forwards;
+    }
+
+    @keyframes laconicLightFlash {
+      0% { opacity: 0.9; clip-path: inset(18% 0 68% 0); }
+      22% { opacity: 0; clip-path: inset(0 0 0 0); }
+      44% { opacity: 0.95; clip-path: inset(54% 0 26% 0); }
+      64% { opacity: 0.75; clip-path: inset(8% 0 84% 0); }
+      82% { opacity: 0; }
+      100% { opacity: 0; }
+    }
+
+    @keyframes elementInvertJitter {
+      0% {
+        filter: invert(1) contrast(1.3);
+        transform: translateX(-8px);
+      }
+      30% {
+        filter: none;
+        transform: translateX(6px);
+      }
+      60% {
+        filter: invert(1);
+        transform: translateX(-4px);
+        opacity: 0.65;
+      }
+      85% {
+        filter: none;
+        transform: translateX(2px);
+        opacity: 0.25;
+      }
+      100% {
+        filter: none;
+        transform: translateX(0);
+        opacity: 0;
+      }
+    }
+
+    @keyframes cardInvertSlice {
+      0% {
+        filter: invert(1) contrast(1.4);
+        transform: translateX(10px);
+        clip-path: inset(0 0 12% 0);
+      }
+      33% {
+        filter: invert(0.85) brightness(1.25);
+        transform: translateX(-9px);
+        clip-path: inset(14% 0 0 0);
+      }
+      66% {
+        filter: invert(1);
+        transform: translateX(5px);
+        clip-path: inset(4% 0 6% 0);
+        opacity: 0.55;
+      }
+      100% {
+        filter: none;
+        transform: translateX(0);
+        clip-path: inset(0 0 0 0);
+        opacity: 0;
+      }
+    }
+
+    @keyframes textGlitchShift {
+      0% {
+        transform: translateX(7px);
+        opacity: 0.5;
+      }
+      35% {
+        filter: invert(1);
+        transform: translateX(-6px);
+        opacity: 0.85;
+      }
+      70% {
+        filter: none;
+        transform: translateX(3px);
+        opacity: 0.35;
+      }
+      100% {
+        transform: translateX(0);
+        opacity: 0;
+      }
+    }
+
+    @keyframes sidebarItemFlicker {
+      0% {
+        filter: invert(1);
+        background-color: #ffffff;
+        transform: translateX(-4px);
+      }
+      50% {
+        filter: none;
+        transform: translateX(3px);
+      }
+      100% {
+        filter: none;
+        transform: translateX(0);
+      }
+    }
+
+    .msg-appear {
+      animation: msgFadeIn 0.32s cubic-bezier(0.2, 0, 0, 1) forwards;
+    }
+    @keyframes msgFadeIn {
+      from { opacity: 0; transform: translateY(6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes starPulse {
+      0%, 100% { transform: scale(1) rotate(0deg); opacity: 0.9; }
+      50% { transform: scale(1.12) rotate(15deg); opacity: 1; }
+    }
+    .gemini-sparkle-spin {
+      animation: starPulse 2.2s ease-in-out infinite;
+    }
+
+    @keyframes shimmerSweep {
+      0% { transform: translateX(-100%); }
+      100% { transform: translateX(100%); }
+    }
+    .loader-shimmer {
+      animation: shimmerSweep 1.5s infinite;
+    }
+
+    .author-note {
+      display: block;
+      color: var(--text-muted);
+      font-style: italic;
+      font-size: 0.8125rem;
+      line-height: 1.6;
+      user-select: text;
+    }
+    .author-note-text:empty {
+      display: none;
+    }
+
+    .lightbox-backdrop {
+      background-color: rgba(15, 17, 21, 0.82);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.22s ease;
+    }
+    .lightbox-backdrop.open {
+      opacity: 1;
+      pointer-events: auto;
+    }
+    .lightbox-img {
+      max-width: 90vw;
+      max-height: 88vh;
+      border-radius: 12px;
+      box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
+      transform: scale(0.96);
+      transition: transform 0.24s cubic-bezier(0.2, 0, 0, 1);
+    }
+    .lightbox-backdrop.open .lightbox-img {
+      transform: scale(1);
+    }
+  </style>
+</head>
+<body class="h-screen w-screen flex overflow-hidden relative">
+
+  <div id="glitchLightPulse" class="glitch-light-pulse"></div>
+
+  <div id="imageLightbox" class="lightbox-backdrop fixed inset-0 z-50 flex items-center justify-center p-4">
+    <button 
+      id="closeLightboxBtn" 
+      type="button" 
+      aria-label="Закрыть"
+      class="fixed top-5 right-5 w-10 h-10 rounded-full bg-white/15 hover:bg-white/25 text-white flex items-center justify-center text-2xl leading-none transition cursor-pointer"
+    >
+      &times;
+    </button>
+    <img 
+      id="lightboxImage" 
+      src="" 
+      alt="" 
+      referrerpolicy="no-referrer"
+      class="lightbox-img object-contain select-none"
+    />
+  </div>
+
+  <div class="ambient-gradient-stage">
+    <div class="floating-orb orb-1"></div>
+    <div class="floating-orb orb-2"></div>
+    <div class="floating-orb orb-3"></div>
+  </div>
+
+  <aside id="leftSidebar" class="fixed lg:static inset-y-0 left-0 z-40 w-[260px] bg-[#f8fafd]/90 backdrop-blur-xl border-r border-slate-900/[0.07] flex flex-col transform -translate-x-full lg:translate-x-0 transition-transform duration-300 ease-in-out shrink-0">
+    <div class="p-3.5 space-y-3 shrink-0">
+      <div class="flex items-center justify-between px-1">
+        <button id="closeSidebarMobile" type="button" class="p-2 rounded-full text-[#444746] hover:bg-slate-900/[0.06] transition lg:pointer-events-none">
+          <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
+          </svg>
+        </button>
+      </div>
+
+      <div class="inline-flex items-center gap-3 px-4 py-2.5 rounded-full bg-[#e9eef6] text-[#1f1f1f] text-sm font-medium opacity-80 pointer-events-none">
+        <svg class="w-4 h-4 text-[#444746]" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+        </svg>
+        <span>Новый чат</span>
+      </div>
+    </div>
+
+    <div class="flex-1 overflow-y-auto px-3 py-2 select-none space-y-1">
+      <div class="px-3 py-2 text-xs font-medium text-[#747775]">
+        Недавние
+      </div>
+
+      <div class="flex items-center gap-3 px-3 py-2 rounded-full bg-[#d3e3fd] text-[#041e49] text-sm font-medium cursor-default">
+        <svg class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M7.5 8.25h9m-9 3H12m-9.75 1.51c0 1.6 1.123 2.994 2.707 3.227 1.129.166 2.27.293 3.423.379.35.026.67.21.865.501L12 21l2.755-4.133a1.14 1.14 0 01.865-.501 48.172 48.172 0 003.423-.379c1.584-.233 2.707-1.626 2.707-3.228V6.741c0-1.602-1.123-2.995-2.707-3.228A48.394 48.394 0 0012 3c-2.392 0-4.744.175-7.043.513C3.373 3.746 2.25 5.14 2.25 6.741v6.018z" />
+        </svg>
+        <span id="activeChatTitle" class="truncate">Помоги мне вспомнить...</span>
+      </div>
+
+      <div id="sidebarHistoryList" class="space-y-0.5 pt-0.5"></div>
+    </div>
+  </aside>
+
+  <main id="mainAppContainer" class="flex-1 flex flex-col h-full relative z-10 overflow-hidden">
+    <header class="h-14 px-4 flex items-center justify-between shrink-0">
+      <button id="mobileHistoryToggle" type="button" class="lg:hidden p-2 rounded-full text-[#444746] hover:bg-slate-900/[0.06] transition">
+        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
+        </svg>
+      </button>
+      <div></div>
+    </header>
+
+    <div id="chatScrollArea" class="flex-1 overflow-y-auto px-4 sm:px-6 py-4 scroll-smooth">
+      <div class="max-w-[760px] mx-auto space-y-6 pb-8" id="messagesContainer"></div>
+    </div>
+
+    <div class="px-4 pb-5 pt-2 shrink-0">
+      <div class="max-w-[760px] mx-auto">
+        <div class="flex items-center rounded-full bg-white/90 border border-slate-900/[0.1] px-4 py-3 shadow-sm">
+          <button disabled class="p-1.5 text-[#747775] mr-2 cursor-default">
+            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+            </svg>
+          </button>
+          <input 
+            id="bottomPromptInput"
+            type="text" 
+            disabled 
+            placeholder="Введите запрос..." 
+            class="w-full bg-transparent text-sm sm:text-base text-[#1f1f1f] placeholder-[#747775] focus:outline-none cursor-default"
+          />
+          <button disabled class="p-1.5 text-[#747775] ml-2 cursor-default">
+            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 18.75a6 6 0 006-6v-1.5m-6 7.5a6 6 0 01-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 01-3-3V4.5a3 3 0 116 0v8.25a3 3 0 01-3 3z" />
+            </svg>
+          </button>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    const MEMORY_OPTIONS = {
+      storm: {
+        id: 'storm',
+        buttonText: 'Грозу',
+        label: 'Грозу',
+        fileSrc: 'https://i.imgur.com/xg5EABI.jpeg',
+        aiDescription: 'Конечно! Я с огромным удовольствием восстановил для вас это тёплое, уютное воспоминание о летней грозе. Посмотрите, как точно передана та самая атмосфера детства: знакомый домик у воды, мягкая зелень деревьев и спокойное, умиротворяющее небо перед дождём. Надеюсь, эта светлая и ясная картина помогла вам снова ощутить ту приятную свежесть и беззаботность! Если захотите вспомнить что-то ещё, я всегда рад помочь.',
+        authorNote: 'Вообще я воду не люблю. Я как собака с бешенством, от ощущения мокроты меня бросает в дрожь. Но зато я любил звук капель разбивающихся о металическую крышу. Особенно если сильная гроза. Тогда из окна в абсолютной сухости можно было смотреть, как березы у дома напротив срывает ветром в пляс. Недавно я возвращался в деревню. Бабушка покрасила дом. А березы то ли спилили, то ли я сам их в своей голове спилил. Пруд окончательно зарос. А ведь я где-то там пытался посадить свое первое дерево. Главное, что осталась металическая крыша.'
+      },
+      friend: {
+        id: 'friend',
+        buttonText: 'Друга',
+        label: 'Друга',
+        fileSrc: 'https://i.imgur.com/Q2hxXwF.jpeg',
+        aiDescription: 'С радостью помог! Я бережно реконструировал этот трогательный снимок вашего друга детства, чтобы вы могли во всех деталях рассмотреть его знакомую улыбку и ту самую тёплую обстановку, в которой вы проводили время вместе. Какая замечательная, живая и светлая память! Очень надеюсь, что этот чёткий образ подарил вам искреннюю радость и приятную ностальгию. Обращайтесь, если нужно восстановить другие моменты!',
+        authorNote: 'Я не помню кто это, но знаю, что кажется это была моя подруга. У меня осталась лишь фотография в детском альбоме, который я всюду таскаю за собой. Я помню этот двор, где у моих родителей была их первая квартира, и где напротив жили дедушка и бабушка. Я помню коробку из зданий. Я помню дорогу до нашего дома, когда мы переехали на Проспект Мира. Но даже сейчас, смотря на её лицо на фотографии, я не могу его понять.. Черты смешиваются в сгусток. Взрослея я заметил, что плохо различаю лица. Это первое лицое которое я забыл...'
+      },
+      drawing: {
+        id: 'drawing',
+        buttonText: 'Детский рисунок',
+        label: 'Рисунок',
+        fileSrc: 'https://i.imgur.com/tqAEVdq.jpeg',
+        aiDescription: 'Готово! Я постарался максимально бережно и аккуратно воссоздать ваш детский рисунок во всех его трогательных подробностях. Посмотрите на эти искренние линии, яркие краски и ту самую непосредственность, с которой вы когда-то смотрели на мир — всё сохранилось в первозданной чистоте! Рад, что смог вернуть вам этот чудесный фрагмент прошлого. Подскажите, если захотите вспомнить что-нибудь ещё!',
+        authorNote: 'Мама мне рассказывала, что в свой кабинет дедушка пускал только меня. Спустя годы после его смерти я нашел свои детские рисунки в одном из шкафов и забрал с собой. Я рисовал персонажей звездных войн, трансформеров и совсем уж неразборчивых человечков из палок на его архитектурных чертежах. Но больше всего мне в голову вьелся звук часов. До сих пор засыпая я слышу как они отсчитывают секунды на стене, а дедушка тихо водит карандашом по бумаге. Больше я ничего не помню... Кроме как, что один раз мама позвала меня смотреть звездные войны, но видно что-то напутала. После этого в кабинет дедушки я в своей памяти не возвращался.'
+      }
+    };
+
+    const PAST_CHATS = [
+      'Помоги мне вспомнить запах ветра',
+      'Помоги мне вспомнить вкус жвачки хубба бубба',
+      'Помоги мне вспомнить старый подъезд',
+      'Помоги мне вспомнить котопса',
+      'Помоги мне вспомнить прабабушку',
+      'Помоги мне вспомнить ковёр на стене',
+      'Помоги мне вспомнить запах сигарет деда',
+      'Помоги мне вспомнить сверчков в деревне'
+    ];
+
+    function renderSidebarLists() {
+      const listEl = document.getElementById('sidebarHistoryList');
+      listEl.innerHTML = PAST_CHATS.map(title => `
+        <div class="flex items-center gap-3 px-3 py-2 rounded-full text-[#444746] hover:bg-slate-900/[0.04] transition-colors text-sm cursor-default">
+          <svg class="w-4 h-4 shrink-0 text-[#747775]" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M7.5 8.25h9m-9 3H12m-9.75 1.51c0 1.6 1.123 2.994 2.707 3.227 1.129.166 2.27.293 3.423.379.35.026.67.21.865.501L12 21l2.755-4.133a1.14 1.14 0 01.865-.501 48.172 48.172 0 003.423-.379c1.584-.233 2.707-1.626 2.707-3.228V6.741c0-1.602-1.123-2.995-2.707-3.228A48.394 48.394 0 0012 3c-2.392 0-4.744.175-7.043.513C3.373 3.746 2.25 5.14 2.25 6.741v6.018z" />
+          </svg>
+          <span class="truncate">${title}</span>
+        </div>
+      `).join('');
+    }
+
+    let countdownInterval = null;
+    let loaderTimeout = null;
+    let rebootTimeout = null;
+    let remainingSeconds = 90;
+    let isGenerating = false;
+    let isRebooting = false;
+
+    const messagesContainer = document.getElementById('messagesContainer');
+    const chatScrollArea = document.getElementById('chatScrollArea');
+    const activeChatTitle = document.getElementById('activeChatTitle');
+    const imageLightbox = document.getElementById('imageLightbox');
+    const lightboxImage = document.getElementById('lightboxImage');
+    const closeLightboxBtn = document.getElementById('closeLightboxBtn');
+
+    function openLightbox(src, altText) {
+      lightboxImage.src = src;
+      lightboxImage.alt = altText || '';
+      imageLightbox.classList.add('open');
+    }
+
+    function closeLightbox() {
+      imageLightbox.classList.remove('open');
+    }
+
+    closeLightboxBtn.addEventListener('click', closeLightbox);
+    imageLightbox.addEventListener('click', (e) => {
+      if (e.target === imageLightbox) {
+        closeLightbox();
+      }
+    });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && imageLightbox.classList.contains('open')) {
+        closeLightbox();
+      }
+    });
+
+    function formatTime(sec) {
+      const m = Math.floor(sec / 60);
+      const s = sec % 60;
+      return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+    }
+
+    function clearAllTimers() {
+      if (countdownInterval) {
+        clearInterval(countdownInterval);
+        countdownInterval = null;
+      }
+      if (loaderTimeout) {
+        clearTimeout(loaderTimeout);
+        loaderTimeout = null;
+      }
+    }
+
+    function scrollToBottom() {
+      requestAnimationFrame(() => {
+        chatScrollArea.scrollTo({
+          top: chatScrollArea.scrollHeight,
+          behavior: 'smooth'
+        });
+      });
+    }
+
+    function getSparkleIcon(extraClasses = '') {
+      return `
+        <svg class="w-6 h-6 shrink-0 ${extraClasses}" viewBox="0 0 24 24" fill="none">
+          <path d="M12 2C12 7.52285 16.4772 12 22 12C16.4772 12 12 16.4772 12 22C12 16.4772 7.52285 12 2 12C7.52285 12 12 7.52285 12 2Z" fill="url(#geminiGrad)" />
+          <defs>
+            <linearGradient id="geminiGrad" x1="2" y1="2" x2="22" y2="22" gradientUnits="userSpaceOnUse">
+              <stop stop-color="#3b82f6" />
+              <stop offset="0.5" stop-color="#8b5cf6" />
+              <stop offset="1" stop-color="#ec4899" />
+            </linearGradient>
+          </defs>
+        </svg>
+      `;
+    }
+
+    function renderInitialScreen() {
+      closeLightbox();
+      clearAllTimers();
+      isGenerating = false;
+      isRebooting = false;
+      remainingSeconds = 90;
+      activeChatTitle.textContent = 'Помоги мне вспомнить...';
+
+      messagesContainer.innerHTML = `
+        <div class="msg-appear flex flex-col items-end space-y-3 pt-4">
+          <div id="userPromptBubble" class="px-5 py-3 rounded-3xl rounded-tr-md bg-[#e9eef6] text-[#1f1f1f] text-base leading-relaxed max-w-[85%] sm:max-w-[75%]">
+            Помоги мне вспомнить...
+          </div>
+
+          <div id="choiceButtonsRow" class="flex flex-wrap justify-end gap-2 pt-1">
+            <button 
+              type="button" 
+              data-choice="storm" 
+              class="choice-pill-btn px-4 py-2 rounded-2xl text-sm font-normal cursor-pointer"
+            >
+              Грозу
+            </button>
+            <button 
+              type="button" 
+              data-choice="friend" 
+              class="choice-pill-btn px-4 py-2 rounded-2xl text-sm font-normal cursor-pointer"
+            >
+              Друга
+            </button>
+            <button 
+              type="button" 
+              data-choice="drawing" 
+              class="choice-pill-btn px-4 py-2 rounded-2xl text-sm font-normal cursor-pointer"
+            >
+              Детский рисунок
+            </button>
+          </div>
+        </div>
+      `;
+
+      document.querySelectorAll('[data-choice]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const choiceKey = btn.getAttribute('data-choice');
+          handleOptionSelection(choiceKey);
+        });
+      });
+
+      scrollToBottom();
+    }
+
+    function initDialogue(withGlitchTransition = false) {
+      if (!withGlitchTransition) {
+        renderInitialScreen();
+        return;
+      }
+
+      if (isRebooting) return;
+      isRebooting = true;
+      closeLightbox();
+      clearAllTimers();
+
+      const bodyEl = document.body;
+      const pulseEl = document.getElementById('glitchLightPulse');
+
+      bodyEl.classList.remove('is-glitching');
+      pulseEl.classList.remove('active');
+      void bodyEl.offsetWidth;
+      void pulseEl.offsetWidth;
+
+      bodyEl.classList.add('is-glitching');
+      pulseEl.classList.add('active');
+
+      rebootTimeout = setTimeout(() => {
+        bodyEl.classList.remove('is-glitching');
+        pulseEl.classList.remove('active');
+        renderInitialScreen();
+      }, 420);
+    }
+
+    function handleOptionSelection(choiceKey) {
+      if (isGenerating || isRebooting) return;
+      isGenerating = true;
+
+      const selectedOption = MEMORY_OPTIONS[choiceKey];
+      if (!selectedOption) return;
+
+      activeChatTitle.textContent = `Помоги мне вспомнить ${selectedOption.label.toLowerCase()}`;
+
+      const choiceButtonsRow = document.getElementById('choiceButtonsRow');
+      if (choiceButtonsRow) {
+        choiceButtonsRow.remove();
+      }
+
+      const userPromptBubble = document.getElementById('userPromptBubble');
+      if (userPromptBubble) {
+        userPromptBubble.textContent = `Помоги мне вспомнить ${selectedOption.label.toLowerCase()}`;
+      }
+
+      const aiResponseId = 'aiResponseBlock_' + Date.now();
+      const loaderHtml = `
+        <div class="msg-appear flex items-start gap-4 pt-2" id="${aiResponseId}">
+          <div class="mt-1">
+            ${getSparkleIcon('gemini-sparkle-spin')}
+          </div>
+
+          <div class="flex-1 space-y-3">
+            <div class="text-sm text-[#444746] font-normal">
+              Генерация изображения...
+            </div>
+
+            <div class="relative w-full max-w-[440px] h-64 rounded-2xl bg-[#f0f4f9] border border-slate-900/[0.08] overflow-hidden">
+              <div class="absolute inset-0 bg-gradient-to-r from-transparent via-white/70 to-transparent loader-shimmer"></div>
+            </div>
+          </div>
+        </div>
+      `;
+
+      messagesContainer.insertAdjacentHTML('beforeend', loaderHtml);
+      scrollToBottom();
+
+      loaderTimeout = setTimeout(() => {
+        renderGeneratedImageResult(aiResponseId, selectedOption);
+      }, 1800);
+    }
+
+    function renderGeneratedImageResult(blockId, option) {
+      const aiBlock = document.getElementById(blockId);
+      if (!aiBlock) return;
+
+      const formattedAuthorNote = option.authorNote ? `(${option.authorNote})` : '';
+
+      aiBlock.innerHTML = `
+        <div class="mt-1">
+          ${getSparkleIcon()}
+        </div>
+
+        <div class="flex-1 space-y-3.5">
+          <div class="max-w-[600px]">
+            <p class="text-[15px] leading-relaxed text-[#1f1f1f] font-normal select-text">
+              ${option.aiDescription}
+            </p>
+          </div>
+
+          <div class="memory-image-card w-full max-w-[500px] overflow-hidden rounded-[16px] bg-[#f8fafd] border border-slate-900/[0.1] shadow-sm">
+            <img 
+              id="mainMemoryImg"
+              src="${option.fileSrc}" 
+              alt="${option.label}"
+              referrerpolicy="no-referrer"
+              class="w-full h-auto max-h-[520px] object-contain block select-none"
+            />
+          </div>
+
+          <div class="max-w-[600px]">
+            <div class="author-note"><span class="author-note-text">${formattedAuthorNote}</span></div>
+          </div>
+
+          <div class="flex flex-wrap items-center gap-3 pt-1">
+            <button 
+              id="manualRestartBtn"
+              type="button"
+              class="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white hover:bg-[#f0f4f9] border border-slate-900/[0.14] text-[#1f1f1f] text-xs sm:text-sm font-normal shadow-xs transition active:scale-[0.98] cursor-pointer"
+            >
+              <svg class="w-4 h-4 text-[#444746]" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
+              </svg>
+              <span>Перезапустить диалог</span>
+            </button>
+
+            <span id="inlineCountdownText" class="text-xs text-[#747775] tabular-nums">
+              01:30
+            </span>
+          </div>
+        </div>
+      `;
+
+      const mainMemoryImg = document.getElementById('mainMemoryImg');
+      if (mainMemoryImg) {
+        mainMemoryImg.addEventListener('click', () => {
+          openLightbox(option.fileSrc, option.label);
+        });
+      }
+
+      const manualRestartBtn = document.getElementById('manualRestartBtn');
+      if (manualRestartBtn) {
+        manualRestartBtn.addEventListener('click', () => {
+          initDialogue(true);
+        });
+      }
+
+      startNinetySecondCountdown();
+      scrollToBottom();
+    }
+
+    function startNinetySecondCountdown() {
+      remainingSeconds = 90;
+
+      const updateDisplays = () => {
+        const inlineEl = document.getElementById('inlineCountdownText');
+        if (inlineEl) inlineEl.textContent = formatTime(remainingSeconds);
+      };
+
+      updateDisplays();
+
+      countdownInterval = setInterval(() => {
+        remainingSeconds--;
+        updateDisplays();
+
+        if (remainingSeconds <= 0) {
+          clearInterval(countdownInterval);
+          countdownInterval = null;
+          initDialogue(true);
+        }
+      }, 1000);
+    }
+
+    const leftSidebar = document.getElementById('leftSidebar');
+    document.getElementById('mobileHistoryToggle').addEventListener('click', () => {
+      leftSidebar.classList.toggle('-translate-x-full');
+    });
+    document.getElementById('closeSidebarMobile').addEventListener('click', () => {
+      leftSidebar.classList.add('-translate-x-full');
+    });
+
+    window.addEventListener('DOMContentLoaded', () => {
+      renderSidebarLists();
+      initDialogue(false);
+    });
+  </script>
+</body>
+</html>
